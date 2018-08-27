@@ -2,6 +2,7 @@ from utils.ctrv_motion_model import calculate_odometry_from_controls
 from core.linearize import initialize_xi_omega, graph_slam_linearize, linearize_controls
 from core.reduce import graph_slam_reduce
 from core.solve import graph_slam_solve
+from core.landmark_correspondence import calculate_correspondence_probability
 from utils.measurement_model import add_measurement_to_pose, calculate_landmark_distance, calculate_landmark_heading
 
 import numpy as np
@@ -89,7 +90,6 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
     @staticmethod
     def generate_measurements_of_single_landmark(state_estimates):
         measurements = []
-        correspondences = []
 
         landmark = np.array([[10, 0, 0]]).T
 
@@ -98,11 +98,24 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
             heading = calculate_landmark_heading(state_estimate, landmark)
 
             measurements.append([np.array([[distance, heading, 0]]).T])
-            correspondences.append([0])
 
-        x, y = add_measurement_to_pose(state_estimates[0], measurements[0][0])
-        expected_landmark = np.array([[x, y, measurements[0][0].item(2)]]).T
-        expected_landmarks = {0: expected_landmark}
+        return measurements, landmark
+
+    @staticmethod
+    def generate_corresponding_measurements_of_single_landmark(state_estimates):
+        measurements, landmark = TestGraphSlamLinearizeReduce.generate_measurements_of_single_landmark(state_estimates)
+
+        correspondences = [[0] for measurement in measurements]
+        expected_landmarks = {0: landmark}
+
+        return measurements, correspondences, expected_landmarks
+
+    @staticmethod
+    def generate_non_corresponding_measurements_of_single_landmark(state_estimates):
+        measurements, landmark = TestGraphSlamLinearizeReduce.generate_measurements_of_single_landmark(state_estimates)
+
+        correspondences = [[index] for index, measurement in enumerate(measurements)]
+        expected_landmarks = {index: landmark for index, measurement in enumerate(measurements)}
 
         return measurements, correspondences, expected_landmarks
 
@@ -169,7 +182,7 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
             state_estimates = self.test_state_estimates[test_index]
 
             measurements, correspondences, expected_landmarks \
-                = self.generate_measurements_of_single_landmark(state_estimates)
+                = self.generate_corresponding_measurements_of_single_landmark(state_estimates)
 
             landmark_estimates = dict()
 
@@ -221,7 +234,7 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
             state_estimates = self.test_state_estimates[test_index]
 
             measurements, correspondences, expected_landmarks \
-                = self.generate_measurements_of_single_landmark(state_estimates)
+                = self.generate_corresponding_measurements_of_single_landmark(state_estimates)
 
             landmark_estimates = dict()
 
@@ -267,7 +280,7 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
             state_estimates = self.test_state_estimates[test_index]
 
             measurements, correspondences, ground_truth_landmarks \
-                = self.generate_measurements_of_single_landmark(state_estimates)
+                = self.generate_corresponding_measurements_of_single_landmark(state_estimates)
 
             landmark_estimates = dict()
 
@@ -278,6 +291,28 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
 
             self.assert_mu_close_to_ground_truth_states(mu, state_estimates)
             self.assert_expected_landmark_estimates(ground_truth_landmarks, landmark_estimates)
+
+    def test_correspondence_probability_with_correspondence_round_trip(self):
+        """
+        In this test, perfect measurements of the same landmark from different poses are fed into GraphSLAM, all
+        measurements with unique correspondence values. Then, the correspondence probabilities are calculated, and
+        verified.
+        """
+        for test_index, controls in enumerate(self.test_controls):
+            state_estimates = self.test_state_estimates[test_index]
+
+            measurements, correspondences, ground_truth_landmarks \
+                = self.generate_non_corresponding_measurements_of_single_landmark(state_estimates)
+
+            landmark_estimates = dict()
+
+            xi, omega, landmark_estimates = graph_slam_linearize(state_estimates, landmark_estimates, controls,
+                                                                 measurements, correspondences, self.R, self.Q)
+            xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
+            mu, sigma, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
+
+            p = calculate_correspondence_probability(xi, omega, sigma, landmark_estimates, 0, 1)
+            # TODO check for all pairs of landmarks, that p is ~1.
 
 
 if __name__ == "__main__":
