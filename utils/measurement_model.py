@@ -49,6 +49,13 @@ def calculate_measurement_vector_for_detection(ground_truth_state, detected_land
                     detected_landmark_and_distance[0][2]]]).T
 
 
+def add_noise_to_measurements_for_state(measurements_for_state, distance_deviation, heading_deviation):
+    for measurement in measurements_for_state:
+        measurement[0] = measurement[0] + rnd.normalvariate(0, distance_deviation)
+        measurement[1] = measurement[1] + rnd.normalvariate(0, heading_deviation)
+        measurement[1] = normalize_angle_pi_minus_pi(measurement[1])
+
+
 def generate_measurements(ground_truth_states, landmarks, max_sensing_range, sensing_range_deviation,
                           distance_deviation, heading_deviation):
     """
@@ -79,10 +86,7 @@ def generate_measurements(ground_truth_states, landmarks, max_sensing_range, sen
             calculate_measurement_vector_for_detection(ground_truth_state, detected_landmark_and_distance) for
             detected_landmark_and_distance in detected_landmarks_and_distances]
 
-        for measurement in measurements_for_state:
-            measurement[0] = measurement[0] + rnd.normalvariate(0, distance_deviation)
-            measurement[1] = measurement[1] + rnd.normalvariate(0, heading_deviation)
-            measurement[1] = normalize_angle_pi_minus_pi(measurement[1])
+        add_noise_to_measurements_for_state(measurements_for_state, distance_deviation, heading_deviation)
 
         measurements.append(measurements_for_state)
 

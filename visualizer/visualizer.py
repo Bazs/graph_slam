@@ -1,4 +1,4 @@
-from graph_slam.graph_slam import GraphSlamState, generate_ground_truth_map, generate_ground_truth_path, \
+from graph_slam.graph_slam_main import GraphSlamState, generate_ground_truth_map, generate_ground_truth_path, \
     generate_measurements
 from utils.plot_utils import plot_path, plot_measurements_for_state
 from slam_parameters import *

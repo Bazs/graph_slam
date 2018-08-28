@@ -1,9 +1,12 @@
 from utils.ctrv_motion_model import calculate_odometry_from_controls
+from core.initialize import graph_slam_initialize
 from core.linearize import initialize_xi_omega, graph_slam_linearize, linearize_controls
 from core.reduce import graph_slam_reduce
 from core.solve import graph_slam_solve
 from core.landmark_correspondence import calculate_correspondence_probability
-from utils.measurement_model import add_measurement_to_pose, calculate_landmark_distance, calculate_landmark_heading
+from utils.measurement_model import add_measurement_to_pose, calculate_landmark_distance, calculate_landmark_heading, \
+    add_noise_to_measurements_for_state
+from utils.path_generator import add_noise_to_control
 
 import numpy as np
 
@@ -11,7 +14,7 @@ import math
 import unittest
 
 
-class TestGraphSlamLinearizeReduce(unittest.TestCase):
+class TestGraphSlam(unittest.TestCase):
 
     def setUp(self):
         self.test_controls = [
@@ -103,7 +106,7 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
 
     @staticmethod
     def generate_corresponding_measurements_of_single_landmark(state_estimates):
-        measurements, landmark = TestGraphSlamLinearizeReduce.generate_measurements_of_single_landmark(state_estimates)
+        measurements, landmark = TestGraphSlam.generate_measurements_of_single_landmark(state_estimates)
 
         correspondences = [[0] for measurement in measurements]
         expected_landmarks = {0: landmark}
@@ -112,12 +115,22 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
 
     @staticmethod
     def generate_non_corresponding_measurements_of_single_landmark(state_estimates):
-        measurements, landmark = TestGraphSlamLinearizeReduce.generate_measurements_of_single_landmark(state_estimates)
+        measurements, landmark = TestGraphSlam.generate_measurements_of_single_landmark(state_estimates)
 
         correspondences = [[index] for index, measurement in enumerate(measurements)]
         expected_landmarks = {index: landmark for index, measurement in enumerate(measurements)}
 
         return measurements, correspondences, expected_landmarks
+
+    def test_initialize(self):
+        for test_index, controls in enumerate(self.test_controls):
+            state_t0 = np.array([[0, 0, 0]]).T
+            initialized_states = graph_slam_initialize(controls, state_t0)
+
+            expected_state_estimates = self.test_state_estimates[test_index]
+
+            for index, expected_state_estimate in enumerate(expected_state_estimates):
+                self.assertTrue(np.allclose(expected_state_estimate, initialized_states[index]))
 
     def test_linearize_controls_round_trip(self):
         """
@@ -125,7 +138,6 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
         recovered from the information representation match the expected states, created by just applying the controls
         in a noise-free world.
         """
-
         for test_index, controls in enumerate(self.test_controls):
             xi, omega = initialize_xi_omega()
 
@@ -175,7 +187,7 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
     def test_linearize_with_correspondence_round_trip(self):
         """
         The test execution follows the description of
-        "meth:`core.test.TestGraphSlamLinearizeReduce.test_linearize_no_correspondence_round_trip`,
+        "meth:`core.test.TestGraphSlam.test_linearize_no_correspondence_round_trip`,
         with the exception, that now every input measurement corresponds to the same landmark.
         """
         for test_index, controls in enumerate(self.test_controls):
@@ -227,7 +239,7 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
     def test_linearize_reduce_with_correspondence_round_trip(self):
         """
         The test execution follows the description of
-        "meth:`core.test.TestGraphSlamLinearizeReduce.test_linearize_reduce_no_correspondence_round_trip`,
+        "meth:`core.test.TestGraphSlam.test_linearize_reduce_no_correspondence_round_trip`,
         with the exception, that now every input measurement corresponds to the same landmark.
         """
         for test_index, controls in enumerate(self.test_controls):
@@ -273,7 +285,7 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
     def test_graph_slam_full_with_correspondence_round_trip(self):
         """
         The test execution follows the description of
-        "meth:`core.test.TestGraphSlamLinearizeReduce.test_graph_slam_full_no_correspondence_round_trip`,
+        "meth:`core.test.TestGraphSlam.test_graph_slam_full_no_correspondence_round_trip`,
         with the exception, that now every input measurement corresponds to the same landmark.
         """
         for test_index, controls in enumerate(self.test_controls):
@@ -291,6 +303,40 @@ class TestGraphSlamLinearizeReduce(unittest.TestCase):
 
             self.assert_mu_close_to_ground_truth_states(mu, state_estimates)
             self.assert_expected_landmark_estimates(ground_truth_landmarks, landmark_estimates)
+
+    def test_graph_slam_full_with_correspondence_improvement(self):
+        """
+        Tests that from noisy controls and measurements, the full algorithm reduces the RMS error of state estimates
+        over multiple iterations, if the correspondences are correctly given.
+        """
+        # for test_index, controls in enumerate(self.test_controls):
+        #     state_estimates = self.test_state_estimates[test_index]
+        #
+        #     measurements, correspondences, ground_truth_landmarks \
+        #         = self.generate_corresponding_measurements_of_single_landmark(state_estimates)
+        #
+        #     noisy_controls = [add_noise_to_control(control, 0.2, math.pi * 3 / 180) for control in self.test_controls]
+        #     noisy_measurements = [add_noise_to_measurements_for_state(measurements_for_state, 0.1, math.pi * 2 / 180)
+        #                           for measurements_for_state in measurements]
+        #     landmark_estimates = dict()
+        #
+        #     initialized_states = graph_slam_initialize(controls, state_estimates[0])
+        #     xi, omega, landmark_estimates = graph_slam_linearize(initialized_states, landmark_estimates, noisy_controls,
+        #                                                          noisy_measurements, correspondences, self.R, self.Q)
+        #     xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
+        #     mu, sigma, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
+        #
+        #     state_errors = np.zeros((len(state_estimates)))
+        #
+        #     for state_index, ground_truth_state in enumerate(state_estimates):
+        #         output_state = mu[state_index * 3:state_index * 3 + 3]
+        #         state_errors = np.linalg.norm(output_state - ground_truth_state)
+        #
+        #
+        #     # state_RMS_error =
+        #
+        #     self.assert_mu_close_to_ground_truth_states(mu, state_estimates)
+        #     self.assert_expected_landmark_estimates(ground_truth_landmarks, landmark_estimates)
 
     def test_correspondence_probability_with_correspondence_round_trip(self):
         """
