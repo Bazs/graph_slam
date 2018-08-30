@@ -9,9 +9,10 @@ import random as rnd
 
 
 def add_noise_to_control(control, velocity_control_deviation, turn_rate_control_deviation):
-    control[0] = control[0] + rnd.normalvariate(0, velocity_control_deviation)
-    control[1] = control[1] + rnd.normalvariate(0, turn_rate_control_deviation)
-    return control
+    noisy_control = np.zeros(control.shape)
+    noisy_control[0] = control[0] + rnd.normalvariate(0, velocity_control_deviation)
+    noisy_control[1] = control[1] + rnd.normalvariate(0, turn_rate_control_deviation)
+    return noisy_control
 
 
 def clip(value, minimum, maximum):

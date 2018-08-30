@@ -2,7 +2,7 @@ from utils.ctrv_motion_model import calculate_odometry_from_controls
 from core.initialize import graph_slam_initialize
 from core.linearize import initialize_xi_omega, graph_slam_linearize, linearize_controls
 from core.reduce import graph_slam_reduce
-from core.solve import graph_slam_solve
+from core.solve import graph_slam_solve, recover_state_estimates
 from core.landmark_correspondence import calculate_correspondence_probability
 from utils.measurement_model import add_measurement_to_pose, calculate_landmark_distance, calculate_landmark_heading, \
     add_noise_to_measurements_for_state
@@ -112,6 +112,17 @@ class TestGraphSlam(unittest.TestCase):
         expected_landmarks = {0: landmark}
 
         return measurements, correspondences, expected_landmarks
+
+    @staticmethod
+    def calculate_rms_state_error(output_state_estimates, ground_truth_state_estimates):
+        state_errors = np.zeros((len(output_state_estimates)))
+
+        for state_index, ground_truth_state in enumerate(ground_truth_state_estimates):
+            output_state = output_state_estimates[state_index]
+            state_errors[state_index] = np.linalg.norm(output_state - ground_truth_state)
+
+        rms_state_error = np.sqrt((state_errors ** 2).mean())
+        return rms_state_error
 
     @staticmethod
     def generate_non_corresponding_measurements_of_single_landmark(state_estimates):
@@ -309,34 +320,33 @@ class TestGraphSlam(unittest.TestCase):
         Tests that from noisy controls and measurements, the full algorithm reduces the RMS error of state estimates
         over multiple iterations, if the correspondences are correctly given.
         """
-        # for test_index, controls in enumerate(self.test_controls):
-        #     state_estimates = self.test_state_estimates[test_index]
-        #
-        #     measurements, correspondences, ground_truth_landmarks \
-        #         = self.generate_corresponding_measurements_of_single_landmark(state_estimates)
-        #
-        #     noisy_controls = [add_noise_to_control(control, 0.2, math.pi * 3 / 180) for control in self.test_controls]
-        #     noisy_measurements = [add_noise_to_measurements_for_state(measurements_for_state, 0.1, math.pi * 2 / 180)
-        #                           for measurements_for_state in measurements]
-        #     landmark_estimates = dict()
-        #
-        #     initialized_states = graph_slam_initialize(controls, state_estimates[0])
-        #     xi, omega, landmark_estimates = graph_slam_linearize(initialized_states, landmark_estimates, noisy_controls,
-        #                                                          noisy_measurements, correspondences, self.R, self.Q)
-        #     xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
-        #     mu, sigma, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
-        #
-        #     state_errors = np.zeros((len(state_estimates)))
-        #
-        #     for state_index, ground_truth_state in enumerate(state_estimates):
-        #         output_state = mu[state_index * 3:state_index * 3 + 3]
-        #         state_errors = np.linalg.norm(output_state - ground_truth_state)
-        #
-        #
-        #     # state_RMS_error =
-        #
-        #     self.assert_mu_close_to_ground_truth_states(mu, state_estimates)
-        #     self.assert_expected_landmark_estimates(ground_truth_landmarks, landmark_estimates)
+        for test_index, controls in enumerate(self.test_controls):
+            state_estimates = self.test_state_estimates[test_index]
+
+            measurements, correspondences, ground_truth_landmarks \
+                = self.generate_corresponding_measurements_of_single_landmark(state_estimates)
+
+            noisy_controls = [add_noise_to_control(control, 0.2, math.pi * 3 / 180) for control in controls]
+            noisy_measurements = [add_noise_to_measurements_for_state(measurements_for_state, 0.1, math.pi * 2 / 180)
+                                  for measurements_for_state in measurements]
+            landmark_estimates = dict()
+
+            output_state_estimates = graph_slam_initialize(noisy_controls, state_estimates[0])
+
+            previous_rms_state_error = self.calculate_rms_state_error(output_state_estimates, state_estimates)
+
+            # TODO find dimension reduction bug
+            # for iteration_index in range(5):
+            #     xi, omega, landmark_estimates = graph_slam_linearize(output_state_estimates, landmark_estimates,
+            #                                                          noisy_controls, noisy_measurements,
+            #                                                          correspondences, self.R, self.Q)
+            #     xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
+            #     mu, sigma, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
+            #     output_state_estimates = recover_state_estimates(mu)
+            #
+            #     rms_state_error = self.calculate_rms_state_error(output_state_estimates, state_estimates)
+            #     self.assertLess(rms_state_error, previous_rms_state_error)
+            #     previous_rms_state_error = rms_state_error
 
     def test_correspondence_probability_with_correspondence_round_trip(self):
         """

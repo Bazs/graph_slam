@@ -55,6 +55,8 @@ def add_noise_to_measurements_for_state(measurements_for_state, distance_deviati
         measurement[1] = measurement[1] + rnd.normalvariate(0, heading_deviation)
         measurement[1] = normalize_angle_pi_minus_pi(measurement[1])
 
+    return measurements_for_state
+
 
 def generate_measurements(ground_truth_states, landmarks, max_sensing_range, sensing_range_deviation,
                           distance_deviation, heading_deviation):

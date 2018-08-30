@@ -35,3 +35,12 @@ def graph_slam_solve(xi_reduced, omega_reduced, xi, omega):
         landmark_estimates[landmark_index] = landmark_estimate
 
     return mu_state, sigma_state, landmark_estimates
+
+
+def recover_state_estimates(mu_state):
+    state_estimates = []
+
+    for state_index in range(int(mu_state.shape[0] / 3)):
+        state_estimates.append(mu_state[state_index * 3:state_index * 3 + 3])
+
+    return state_estimates
