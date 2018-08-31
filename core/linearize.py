@@ -79,7 +79,7 @@ def linearize_measurements(xi, omega, Q, state_estimates, landmark_estimates, me
             num_landmarks = len(landmark_estimates)
 
             # Precalculate indices into omega corresponding to the measurement
-            measurement_start_index = omega.shape[0] + (correspondence - num_landmarks) * 3
+            measurement_start_index = (len(state_estimates) + correspondence) * 3
             measurement_end_index = measurement_start_index + 3
 
             # If this observation is not associated to any previously observed landmark

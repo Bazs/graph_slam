@@ -326,27 +326,26 @@ class TestGraphSlam(unittest.TestCase):
             measurements, correspondences, ground_truth_landmarks \
                 = self.generate_corresponding_measurements_of_single_landmark(state_estimates)
 
-            noisy_controls = [add_noise_to_control(control, 0.2, math.pi * 3 / 180) for control in controls]
-            noisy_measurements = [add_noise_to_measurements_for_state(measurements_for_state, 0.1, math.pi * 2 / 180)
+            noisy_controls = [add_noise_to_control(control, 0.4, math.pi * 5 / 180) for control in controls]
+            noisy_measurements = [add_noise_to_measurements_for_state(measurements_for_state, 0.01, math.pi * 0.1 / 180)
                                   for measurements_for_state in measurements]
             landmark_estimates = dict()
 
             output_state_estimates = graph_slam_initialize(noisy_controls, state_estimates[0])
+            initial_rms_state_error = self.calculate_rms_state_error(output_state_estimates, state_estimates)
 
-            previous_rms_state_error = self.calculate_rms_state_error(output_state_estimates, state_estimates)
+            for iteration_index in range(100):
+                xi, omega, landmark_estimates = graph_slam_linearize(output_state_estimates, landmark_estimates,
+                                                                     noisy_controls, noisy_measurements,
+                                                                     correspondences, self.R, self.Q)
+                xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
+                mu, sigma, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
+                output_state_estimates = recover_state_estimates(mu)
 
-            # TODO find dimension reduction bug
-            # for iteration_index in range(5):
-            #     xi, omega, landmark_estimates = graph_slam_linearize(output_state_estimates, landmark_estimates,
-            #                                                          noisy_controls, noisy_measurements,
-            #                                                          correspondences, self.R, self.Q)
-            #     xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
-            #     mu, sigma, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
-            #     output_state_estimates = recover_state_estimates(mu)
-            #
-            #     rms_state_error = self.calculate_rms_state_error(output_state_estimates, state_estimates)
-            #     self.assertLess(rms_state_error, previous_rms_state_error)
-            #     previous_rms_state_error = rms_state_error
+            rms_state_error = self.calculate_rms_state_error(output_state_estimates, state_estimates)
+
+            # Assert that incorporating associated measurements will always improve upon the odometry-only estimate
+            self.assertLess(rms_state_error, initial_rms_state_error)
 
     def test_correspondence_probability_with_correspondence_round_trip(self):
         """
