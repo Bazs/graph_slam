@@ -366,7 +366,10 @@ class TestGraphSlam(unittest.TestCase):
             xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
             mu, sigma, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
 
-            p = calculate_correspondence_probability(xi, omega, sigma, landmark_estimates, 0, 1)
+            for j in range(len(landmark_estimates)):
+                for k in range(j + 1, len(landmark_estimates)):
+                    p = calculate_correspondence_probability(omega, sigma, landmark_estimates, j, k)
+                    pass
             # TODO check for all pairs of landmarks, that p is ~1.
 
 

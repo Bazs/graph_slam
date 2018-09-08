@@ -42,20 +42,12 @@ if __name__ == "__main__":
                                    velocity_control_deviation=VELOCITY_CONTROL_DEVIATION,
                                    turn_rate_control_deviation=TURN_RATE_CONTROL_DEVIATION)
 
-    measurements = generate_measurements(ground_truth_states, landmarks, max_sensing_range=MAX_SENSING_RANGE,
-                                         sensing_range_deviation=SENSING_RANGE_DEVIATION,
-                                         distance_deviation=DISTANCE_DEVIATION, heading_deviation=HEADING_DEVIATION)
+    measurements, correspondences = generate_measurements(
+        ground_truth_states, landmarks, max_sensing_range=MAX_SENSING_RANGE,
+        sensing_range_deviation=SENSING_RANGE_DEVIATION, distance_deviation=DISTANCE_DEVIATION,
+        heading_deviation=HEADING_DEVIATION)
 
     state_estimates = graph_slam_initialize(controls, state_t0=ground_truth_states[0])
-
-    # Initialize unique correspondences for each observation for the first execution
-    correspondences = []
-    correspondence_idx = 0
-
-    for measurements_for_state in measurements:
-        correspondences_for_state = list(range(correspondence_idx, correspondence_idx + len(measurements_for_state)))
-        correspondences.append(correspondences_for_state)
-        correspondence_idx = correspondence_idx + len(measurements_for_state)
 
     landmark_estimates = dict()
 

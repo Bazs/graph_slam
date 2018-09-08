@@ -2,8 +2,10 @@ from utils.angle_utils import normalize_angle_pi_minus_pi
 
 import numpy as np
 
+from collections import namedtuple, OrderedDict
 import math
 import random as rnd
+from typing import List
 
 
 def add_measurement_to_pose(pose, measurement):
@@ -36,17 +38,19 @@ def calculate_landmark_heading(pose, landmark):
     return phi
 
 
-def get_landmarks_and_distances_in_range(ground_truth_state, landmarks, max_sensing_range):
+LandmarkDistanceIndex = namedtuple("LandmarkDistanceIndex", "landmark distance index")
+
+
+def get_landmarks_in_range(ground_truth_state, landmarks, max_sensing_range):
     landmark_distances = [np.linalg.norm(landmark[:2] - ground_truth_state[:2]) for landmark in landmarks]
-    return [(landmark, landmark_distances[index]) for index, landmark in
-            enumerate(landmarks) if landmark_distances[index]
-            <= max_sensing_range]
+    return [LandmarkDistanceIndex(landmark, landmark_distances[index], index) for index, landmark in
+            enumerate(landmarks) if landmark_distances[index] <= max_sensing_range]
 
 
-def calculate_measurement_vector_for_detection(ground_truth_state, detected_landmark_and_distance):
-    return np.array([[detected_landmark_and_distance[1],
-                    calculate_landmark_heading(ground_truth_state, detected_landmark_and_distance[0]),
-                    detected_landmark_and_distance[0][2]]]).T
+def calculate_measurement_vector_for_detection(ground_truth_state, landmark_distance_index):
+    return np.array([[landmark_distance_index.distance,
+                     calculate_landmark_heading(ground_truth_state, landmark_distance_index.landmark),
+                     landmark_distance_index.landmark[2]]]).T
 
 
 def add_noise_to_measurements_for_state(measurements_for_state, distance_deviation, heading_deviation):
@@ -56,6 +60,32 @@ def add_noise_to_measurements_for_state(measurements_for_state, distance_deviati
         measurement[1] = normalize_angle_pi_minus_pi(measurement[1])
 
     return measurements_for_state
+
+
+def compress_correspondences(correspondences: List[List[int]]) -> List[List[int]]:
+    """
+    Maps the given correspondence indices to a new set of indices, which start from zero (in order of appearance in the
+    original correspondence lists), and are tightly increasing. NOTE: also modifies the input list!
+
+    >>> compress_correspondences([[5, 8], [5, 9], [8, 9], [9, 5, 8]])
+    [[0, 1], [0, 2], [1, 2], [2, 0, 1]]
+
+    :param correspondences: list of correspondence lists for each state
+    :return compressed correspondences
+    """
+    flat_correspondences = [correspondence for correspondences_for_state in correspondences for correspondence in
+                            correspondences_for_state]
+
+    original_correspondence_indices = list(OrderedDict.fromkeys(flat_correspondences))
+
+    original_to_target = {original_correspondence_index: index for index, original_correspondence_index in
+                          enumerate(original_correspondence_indices)}
+
+    for index, original_correspondences_for_state in enumerate(correspondences):
+        correspondences[index] = [original_to_target[original_correspondence] for original_correspondence in
+                                  original_correspondences_for_state]
+
+    return correspondences
 
 
 def generate_measurements(ground_truth_states, landmarks, max_sensing_range, sensing_range_deviation,
@@ -72,24 +102,36 @@ def generate_measurements(ground_truth_states, landmarks, max_sensing_range, sen
     """
 
     measurements = []
+    correspondences = []
 
     for ground_truth_state in ground_truth_states:
-        landmarks_and_distances_in_range = get_landmarks_and_distances_in_range(ground_truth_state, landmarks,
-                                                                                max_sensing_range)
+        landmark_distance_index_list = get_landmarks_in_range(ground_truth_state, landmarks,
+                                                              max_sensing_range)
 
         # Sample obstacles from the in-range ones, using the absolute values of samples from a zero-mean normal
         # distribution as distance thresholds
-        detected_landmarks_and_distances = [landmark_and_distance for landmark_and_distance in
-                                            landmarks_and_distances_in_range if
-                                            abs(rnd.normalvariate(0, sensing_range_deviation))
-                                            >= landmark_and_distance[1]]
+        landmark_distance_index_list = [landmark_distance_index for landmark_distance_index in
+                                        landmark_distance_index_list if
+                                        abs(rnd.normalvariate(0, sensing_range_deviation))
+                                        >= landmark_distance_index.distance]
 
         measurements_for_state = [
-            calculate_measurement_vector_for_detection(ground_truth_state, detected_landmark_and_distance) for
-            detected_landmark_and_distance in detected_landmarks_and_distances]
+            calculate_measurement_vector_for_detection(ground_truth_state, landmark_distance_index) for
+            landmark_distance_index in landmark_distance_index_list]
+        correspondences_for_state = [landmark_distance_index.index for landmark_distance_index in
+                                     landmark_distance_index_list]
 
         add_noise_to_measurements_for_state(measurements_for_state, distance_deviation, heading_deviation)
 
-        measurements.append(measurements_for_state)
+        assert len(measurements_for_state) == len(correspondences_for_state)
 
-    return measurements
+        measurements.append(measurements_for_state)
+        correspondences.append(correspondences_for_state)
+
+    compress_correspondences(correspondences)
+
+    assert len(measurements) == len(correspondences)
+    for index, correspondence_for_state in enumerate(correspondences):
+        assert len(measurements[index]) == len(correspondence_for_state)
+
+    return measurements, correspondences

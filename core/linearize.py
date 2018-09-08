@@ -75,15 +75,12 @@ def linearize_measurements(xi, omega, Q, state_estimates, landmark_estimates, me
         for landmark_index, landmark_measurement in enumerate(measurements_for_state):
             correspondence = correspondences[step_index][landmark_index]
 
-            # The number of landmarks, for which there already exists an estimate
-            num_landmarks = len(landmark_estimates)
-
             # Precalculate indices into omega corresponding to the measurement
             measurement_start_index = (len(state_estimates) + correspondence) * 3
             measurement_end_index = measurement_start_index + 3
 
             # If this observation is not associated to any previously observed landmark
-            if num_landmarks <= correspondence:
+            if correspondence not in landmark_estimates:
                 x, y = add_measurement_to_pose(current_state, landmark_measurement)
                 landmark_estimate = np.array([[x, y, landmark_measurement.item(2)]]).T
 

@@ -1,5 +1,5 @@
-from utils.measurement_model import get_landmarks_and_distances_in_range, \
-    calculate_measurement_vector_for_detection
+from utils.measurement_model import get_landmarks_in_range, \
+    calculate_measurement_vector_for_detection, LandmarkDistanceIndex
 
 import numpy as np
 
@@ -29,26 +29,28 @@ class TestMeasurementModel(unittest.TestCase):
         ]
 
         expected = [
-            (landmarks[0], landmark_sensing_range),
-            (landmarks[1], landmark_sensing_range),
-            (landmarks[2], landmark_sensing_range),
-            (landmarks[5], 0),
+            LandmarkDistanceIndex(landmarks[0], landmark_sensing_range, 0),
+            LandmarkDistanceIndex(landmarks[1], landmark_sensing_range, 1),
+            LandmarkDistanceIndex(landmarks[2], landmark_sensing_range, 2),
+            LandmarkDistanceIndex(landmarks[5], 0, 5),
         ]
 
-        landmarks_and_distances_in_range = get_landmarks_and_distances_in_range(ground_truth_state, landmarks,
-                                                                                landmark_sensing_range)
+        landmark_distance_index_list = get_landmarks_in_range(ground_truth_state, landmarks,
+                                                              landmark_sensing_range)
 
-        self.assertListEqual(expected, landmarks_and_distances_in_range)
+        self.assertListEqual(expected, landmark_distance_index_list)
 
     def test_calculate_measurement_vector_for_detection(self):
         ground_truth_state = np.array([[20, 20, 0]]).T
 
-        test_landmarks_and_distances = [
-            (np.array([[25, 20, 1]]).T, 5),
-            (np.array([[20, 23, 1]]).T, 3),
-            (np.array([[21, 21, 1]]).T, math.sqrt(2)),
-            (np.array([[15, 20, 1]]).T, 5),
-            (np.array([[19, 19, 1]]).T, math.sqrt(2)),
+        default_landmark_index = 0
+
+        test_landmark_distance_index_list = [
+            LandmarkDistanceIndex(np.array([[25, 20, 1]]).T, 5, default_landmark_index),
+            LandmarkDistanceIndex(np.array([[20, 23, 1]]).T, 3, default_landmark_index),
+            LandmarkDistanceIndex(np.array([[21, 21, 1]]).T, math.sqrt(2), default_landmark_index),
+            LandmarkDistanceIndex(np.array([[15, 20, 1]]).T, 5, default_landmark_index),
+            LandmarkDistanceIndex(np.array([[19, 19, 1]]).T, math.sqrt(2), default_landmark_index),
             ]
 
         expected = [
@@ -59,8 +61,8 @@ class TestMeasurementModel(unittest.TestCase):
             np.array([[math.sqrt(2), -3 * math.pi / 4, 1]]).T,
             ]
 
-        for index, landmark_and_distance in enumerate(test_landmarks_and_distances):
-            measurement_vector = calculate_measurement_vector_for_detection(ground_truth_state, landmark_and_distance)
+        for index, landmark_distance_index in enumerate(test_landmark_distance_index_list):
+            measurement_vector = calculate_measurement_vector_for_detection(ground_truth_state, landmark_distance_index)
             self.assertTrue(np.allclose(expected[index], measurement_vector))
 
 

@@ -1,7 +1,9 @@
 import numpy as np
 
+import math
 
-def calculate_correspondence_probability(xi, omega, sigma_states, landmark_estimates, j, k):
+
+def calculate_correspondence_probability(omega, sigma_states, landmark_estimates, j, k):
     state_information_size = sigma_states.shape[0]
     j_start_index = state_information_size + j * 3
     j_end_index = j_start_index + 3
@@ -27,5 +29,14 @@ def calculate_correspondence_probability(xi, omega, sigma_states, landmark_estim
 
     delta_matrix = np.concatenate((np.identity(3), -np.identity(3)))
 
-    pass
+    omega_delta_j_k = np.dot(np.dot(delta_matrix.T, omega_j_k), delta_matrix)
+    xi_delta_j_k = np.dot(delta_matrix.T, xi_j_k)
+
+    sigma_delta_j_k = np.linalg.inv(omega_delta_j_k)
+    mu_delta_j_k = np.dot(sigma_delta_j_k, xi_delta_j_k)
+
+    # TODO fix calculation
+    normalizer = 1 / math.sqrt(np.linalg.norm(2 * math.pi * sigma_delta_j_k))
+
+    return math.exp(-1/2 * np.dot(np.dot(mu_delta_j_k.T, sigma_delta_j_k), mu_delta_j_k))
 
