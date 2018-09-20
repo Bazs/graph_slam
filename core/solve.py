@@ -1,7 +1,10 @@
 import numpy as np
 
+from typing import List, Dict
 
-def graph_slam_solve(xi_reduced, omega_reduced, xi, omega):
+
+def graph_slam_solve(xi_reduced: np.ndarray, omega_reduced: np.ndarray, xi: np.ndarray, omega: np.ndarray) -> \
+        (List[np.ndarray], np.ndarray, Dict[int, np.ndarray]):
     """
     Recovers the mean and covariance of the path, and the mean of the landmarks from the information representation.
     :param xi_reduced: The reduced information vector, result of GraphSLAM reduce.
@@ -34,7 +37,7 @@ def graph_slam_solve(xi_reduced, omega_reduced, xi, omega):
 
         landmark_estimates[landmark_index] = landmark_estimate
 
-    return mu_state, sigma_state, landmark_estimates
+    return recover_state_estimates(mu_state), sigma_state, landmark_estimates
 
 
 def recover_state_estimates(mu_state):

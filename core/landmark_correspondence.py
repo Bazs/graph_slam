@@ -38,5 +38,5 @@ def calculate_correspondence_probability(omega, sigma_states, landmark_estimates
     # TODO fix calculation
     normalizer = 1 / math.sqrt(np.linalg.norm(2 * math.pi * sigma_delta_j_k))
 
-    return math.exp(-1/2 * np.dot(np.dot(mu_delta_j_k.T, sigma_delta_j_k), mu_delta_j_k))
+    return 0 #normalizer * math.exp(-1/2 * np.dot(np.dot(mu_delta_j_k.T, sigma_delta_j_k), mu_delta_j_k))
 
