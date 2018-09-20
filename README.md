@@ -1,4 +1,4 @@
-## GraphSLAM educational implementation
+## GraphSLAM educational implementation [![Build Status](https://travis-ci.com/Bazs/graph_slam.svg?branch=master)](https://travis-ci.com/Bazs/graph_slam)
 
 A bare-bones GraphSLAM implementation based on Chapter 11 of [1]. Mostly for self-educational purposes. Currently has two entry points: 
 * ```graph_slam.py``` can be executed as a sort of single-shot application. Minimal dependencies.
@@ -17,3 +17,6 @@ The application can:
   * Solve
 
 [1]: Probabilistic Robotics, Thrun, S. and Burgard, W. and Fox, D. and Arkin, R.C. 2005 MIT Press
+
+#### Notice
+Extracted from the repository: https://github.com/Bazs/probabilistic-robotics/tree/master/ProbabilisticRoboticsPython/graph_slam. Currently only this repository receives updates.
