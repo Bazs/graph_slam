@@ -48,9 +48,10 @@ if __name__ == "__main__":
         sensing_range_deviation=SENSING_RANGE_DEVIATION, distance_deviation=DISTANCE_DEVIATION,
         heading_deviation=HEADING_DEVIATION)
 
-    state_estimates = graph_slam_initialize(controls, state_t0=ground_truth_states[0])
+    initial_state_estimates = graph_slam_initialize(controls, state_t0=ground_truth_states[0])
 
     landmark_estimates = dict()
+    state_estimates = initial_state_estimates
 
     correspondence_index = 0
     correspondences = []
@@ -59,19 +60,23 @@ if __name__ == "__main__":
         correspondences.append([index + correspondence_index for index, _ in enumerate(measurements_for_state)])
         correspondence_index = correspondence_index + len(measurements_for_state)
 
-    for iteration_index in range(100):
+    R = np.identity(3) * 0.00001
+    Q = np.identity(3) * 0.00001
+
+    for iteration_index in range(5):
         xi, omega, landmark_estimates = \
             graph_slam_linearize(state_estimates=state_estimates, landmark_estimates=landmark_estimates,
                                  controls=controls, measurements=measurements, correspondences=correspondences,
-                                 motion_error_covariance=np.identity(3), measurement_noise_covariance=np.identity(3))
+                                 motion_error_covariance=R, measurement_noise_covariance=Q)
 
         xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
-        output_state_estimates, sigma_states, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi,
-                                                                                    omega)
+        state_estimates, sigma_states, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
 
-    for index, output_state_estimate in enumerate(output_state_estimates):
-        output_state_estimates[index] = np.concatenate((output_state_estimate[:2] + ground_truth_states[0][:2],
-                                                        [[output_state_estimate.item(2)]]))
+    global_state_estimates = []
+
+    for index, state_estimate in enumerate(state_estimates):
+        global_state_estimates.append(np.concatenate((state_estimate[:2] + ground_truth_states[0][:2],
+                                                     state_estimate[2].reshape((1, 1)))))
 
     plt.figure(figsize=[10, 5])
     plt.subplot(131)
@@ -79,8 +84,8 @@ if __name__ == "__main__":
     plt.imshow(ground_truth_map, origin='lower')
 
     plot_path(ground_truth_states, 'C0')
-    plot_path(state_estimates, 'C1')
-    plot_path(output_state_estimates, 'C2')
+    plot_path(initial_state_estimates, 'C1')
+    plot_path(global_state_estimates, 'C2')
 
     current_state = 1
     plot_measurements_for_state(ground_truth_states[current_state], measurements[current_state])
@@ -90,9 +95,9 @@ if __name__ == "__main__":
     omega_binary = omega != 0
     plt.imshow(omega_binary)
 
-    # plt.subplot(133)
-    # plt.title("Reduced information matrix")
-    # omega_reduced_binary = omega_reduced != 0
-    # plt.imshow(omega_reduced_binary)
+    plt.subplot(133)
+    plt.title("Reduced information matrix")
+    omega_reduced_binary = omega_reduced != 0
+    plt.imshow(omega_reduced_binary)
 
     plt.show()

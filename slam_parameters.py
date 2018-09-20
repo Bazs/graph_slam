@@ -10,7 +10,7 @@ MAX_VELOCITY = 1
 VELOCITY_DEVIATION = math.pow(1.5, 2)
 MAX_TURN_RATE = math.pi / 4
 TURN_RATE_DEVIATION = math.pow(math.pi / 180 * 6, 2)
-STEP_COUNT = 20
+STEP_COUNT = 50
 # Odometry model parameters
 VELOCITY_CONTROL_DEVIATION = 0.1
 TURN_RATE_CONTROL_DEVIATION = 5 * math.pi / 180
