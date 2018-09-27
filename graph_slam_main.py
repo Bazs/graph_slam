@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import random as rnd
+from typing import List
 
 
 class GraphSlamState(object):
@@ -29,7 +30,18 @@ class GraphSlamState(object):
         self.true_random_gen = rnd.SystemRandom()
 
 
-if __name__ == "__main__":
+def generate_unique_correspondences_for_measurements(measurements: List[List[np.ndarray]]) -> List[List[int]]:
+    correspondence_index = 0
+    correspondences = []
+
+    for measurements_for_state in measurements:
+        correspondences.append([index + correspondence_index for index, _ in enumerate(measurements_for_state)])
+        correspondence_index = correspondence_index + len(measurements_for_state)
+
+    return correspondences
+
+
+def graph_slam_random_map():
     ground_truth_map, landmarks = generate_ground_truth_map(MAP_HEIGHT, MAP_WIDTH, LANDMARK_COUNT)
 
     # Set up truly random number generation for creating the ground truth path (if the system supports it)
@@ -53,12 +65,7 @@ if __name__ == "__main__":
     landmark_estimates = dict()
     state_estimates = initial_state_estimates
 
-    correspondence_index = 0
-    correspondences = []
-
-    for measurements_for_state in measurements:
-        correspondences.append([index + correspondence_index for index, _ in enumerate(measurements_for_state)])
-        correspondence_index = correspondence_index + len(measurements_for_state)
+    correspondences = generate_unique_correspondences_for_measurements(measurements)
 
     R = np.identity(3) * 0.00001
     Q = np.identity(3) * 0.00001
@@ -101,3 +108,7 @@ if __name__ == "__main__":
     plt.imshow(omega_reduced_binary)
 
     plt.show()
+
+
+if __name__ == "__main__":
+    graph_slam_random_map()

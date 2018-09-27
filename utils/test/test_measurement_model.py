@@ -6,6 +6,7 @@ import numpy as np
 import math
 
 import unittest
+import doctest
 
 
 class TestMeasurementModel(unittest.TestCase):
@@ -64,6 +65,15 @@ class TestMeasurementModel(unittest.TestCase):
         for index, landmark_distance_index in enumerate(test_landmark_distance_index_list):
             measurement_vector = calculate_measurement_vector_for_detection(ground_truth_state, landmark_distance_index)
             self.assertTrue(np.allclose(expected[index], measurement_vector))
+
+
+def load_tests(loader, tests, ignore):
+    """
+    Function required for the unittest test discovery to find the doctests.
+    """
+    import utils.measurement_model
+    tests.addTests(doctest.DocTestSuite(utils.measurement_model))
+    return tests
 
 
 if __name__ == "__main__":
