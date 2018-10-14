@@ -2,7 +2,7 @@ from utils.ctrv_motion_model import calculate_odometry_from_controls
 from core.initialize import graph_slam_initialize
 from core.linearize import initialize_xi_omega, graph_slam_linearize, linearize_controls
 from core.reduce import graph_slam_reduce
-from core.solve import graph_slam_solve, recover_state_estimates
+from core.solve import graph_slam_solve
 from core.landmark_correspondence import calculate_correspondence_probability
 from utils.measurement_model import add_measurement_to_pose, calculate_landmark_distance, calculate_landmark_heading, \
     add_noise_to_measurements_for_state
@@ -11,7 +11,7 @@ from utils.path_generator import add_noise_to_control
 import numpy as np
 
 import math
-from typing import List
+from typing import List, Dict
 import unittest
 
 
@@ -199,6 +199,17 @@ class TestGraphSlam(unittest.TestCase):
 
         rms_state_error = np.sqrt((state_errors ** 2).mean())
         return rms_state_error
+
+    @staticmethod
+    def calculate_rms_landmark_error(output_landmark_estimates: Dict[int, np.ndarray],
+                                     ground_truth_landmarks: Dict[int, np.ndarray]) -> float:
+        root_sum_error = 0.0
+
+        for landmark_index, ground_truth_landmark in ground_truth_landmarks.items():
+            output_landmark = output_landmark_estimates[landmark_index]
+            root_sum_error = root_sum_error + np.linalg.norm(ground_truth_landmark - output_landmark) ** 2
+
+        return np.sqrt(root_sum_error / len(ground_truth_landmarks))
 
     def test_initialize(self):
         for test_index, controls in enumerate(self.test_controls):
@@ -392,7 +403,7 @@ class TestGraphSlam(unittest.TestCase):
             measurements, correspondences, ground_truth_landmarks = \
                 self.generate_varied_measurements(ground_truth_states)
 
-            noisy_controls = [add_noise_to_control(control, 0.1, math.pi * 5 / 180) for control in controls]
+            noisy_controls = [add_noise_to_control(control, 0.1, math.pi * 1 / 180) for control in controls]
             noisy_measurements = [add_noise_to_measurements_for_state(measurements_for_state, 0.01, math.pi * 0.1 / 180)
                                   for measurements_for_state in measurements]
             landmark_estimates = dict()
@@ -407,6 +418,9 @@ class TestGraphSlam(unittest.TestCase):
                 xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
                 output_state_estimates, sigma, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi,
                                                                                      omega)
+
+                rms_landmark_error = self.calculate_rms_landmark_error(landmark_estimates, ground_truth_landmarks)
+                print("Iteration {}, RMS landmark position error: {}".format(iteration_index + 1, rms_landmark_error))
 
             rms_state_error = self.calculate_rms_state_error(output_state_estimates, ground_truth_states)
 
