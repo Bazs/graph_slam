@@ -3,14 +3,14 @@ from utils.measurement_model import add_measurement_to_pose
 import matplotlib.pyplot as plt
 
 
-def plot_path(path_states, color):
+def plot_path(path_states, color, label=""):
     path_x = []
     path_y = []
     for state in path_states:
         path_x.append(state[0])
         path_y.append(state[1])
 
-    return plt.plot(path_x, path_y, marker='o', c=color)
+    return plt.plot(path_x, path_y, marker='o', c=color, label=label)
 
 
 def plot_measurements_for_state(state, measurements):

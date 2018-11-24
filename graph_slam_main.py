@@ -41,6 +41,20 @@ def generate_unique_correspondences_for_measurements(measurements: List[List[np.
     return correspondences
 
 
+def transform_states_into_frame(states: List[np.ndarray], frame: np.ndarray):
+    frame_orientation = frame[2]
+    sinfr = math.sin(frame_orientation)
+    cosfr = math.cos(frame_orientation)
+
+    for state_index, state in enumerate(states):
+        new_x = frame[0] + state[0] * cosfr - state[1] * sinfr
+        state[1] = frame[1] + state[0] * sinfr + state[1] * cosfr
+        state[0] = new_x
+        state[2] = state[2] + frame_orientation
+
+        states[state_index] = state
+
+
 def graph_slam_random_map():
     ground_truth_map, landmarks = generate_ground_truth_map(MAP_HEIGHT, MAP_WIDTH, LANDMARK_COUNT)
 
@@ -60,7 +74,7 @@ def graph_slam_random_map():
         sensing_range_deviation=SENSING_RANGE_DEVIATION, distance_deviation=DISTANCE_DEVIATION,
         heading_deviation=HEADING_DEVIATION)
 
-    initial_state_estimates = graph_slam_initialize(controls, state_t0=ground_truth_states[0])
+    initial_state_estimates = graph_slam_initialize(controls, state_t0=np.array([[0, 0, 0]]).T)
 
     landmark_estimates = dict()
     state_estimates = initial_state_estimates
@@ -70,7 +84,7 @@ def graph_slam_random_map():
     R = np.identity(3) * 0.00001
     Q = np.identity(3) * 0.00001
 
-    for iteration_index in range(5):
+    for iteration_index in range(25):
         xi, omega, landmark_estimates = \
             graph_slam_linearize(state_estimates=state_estimates, landmark_estimates=landmark_estimates,
                                  controls=controls, measurements=measurements, correspondences=correspondences,
@@ -79,20 +93,19 @@ def graph_slam_random_map():
         xi_reduced, omega_reduced = graph_slam_reduce(xi, omega, landmark_estimates)
         state_estimates, sigma_states, landmark_estimates = graph_slam_solve(xi_reduced, omega_reduced, xi, omega)
 
-    global_state_estimates = []
-
-    for index, state_estimate in enumerate(state_estimates):
-        global_state_estimates.append(np.concatenate((state_estimate[:2] + ground_truth_states[0][:2],
-                                                     state_estimate[2].reshape((1, 1)))))
+    transform_states_into_frame(state_estimates, ground_truth_states[0])
+    transform_states_into_frame(initial_state_estimates, ground_truth_states[0])
 
     plt.figure(figsize=[10, 5])
     plt.subplot(131)
     plt.title("Ground truth map")
     plt.imshow(ground_truth_map, origin='lower')
 
-    plot_path(ground_truth_states, 'C0')
-    plot_path(initial_state_estimates, 'C1')
-    plot_path(global_state_estimates, 'C2')
+    plot_path(ground_truth_states, 'C0', "Ground truth")
+    plot_path(initial_state_estimates, 'C1', "Initial estimate with odometry")
+    plot_path(state_estimates, 'C2', "Estimate after optimization")
+
+    plt.legend()
 
     current_state = 1
     plot_measurements_for_state(ground_truth_states[current_state], measurements[current_state])
